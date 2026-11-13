@@ -353,6 +353,13 @@ input[type=text],input[type=search]{width:100%;padding:13px 14px;border:2px soli
 .mapa td:first-child{font-weight:800;color:var(--ink);width:48%}
 #reto{position:fixed;inset:0;z-index:94;background:var(--ground);display:none;flex-direction:column}
 #reto.on{display:flex}
+.comp{font-variant-numeric:tabular-nums}
+.comp th{font-size:10px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;color:var(--mut);text-align:right;padding:0 0 6px 4px;line-height:1.2;vertical-align:bottom}
+.comp td{font-size:13px;padding:9px 0 9px 4px;text-align:right;white-space:nowrap;font-weight:800}
+.comp td:first-child{text-align:left;width:34%;white-space:normal;padding-left:0}
+.comp td.gan{color:var(--bien-d)}
+.comp td.per{color:var(--coral-d)}
+.vis .comp{margin-bottom:4px}
 
 </style>
 </head>
@@ -449,6 +456,8 @@ const POS = {
             p:[{t:'A',k:0,q:1,p:173.73},{t:'C',k:190,q:-1,p:2.90}]},
   vput:    {n:'Vender una put con el dinero reservado', d:'Vendes 1 put de 160 $ por 3,35 $ (cobras 335 $) y reservas 16.000 $.',
             p:[{t:'P',k:160,q:-1,p:3.35}]},
+  seguro:  {n:'Acciones con seguro (put comprada)', d:'Tienes 100 acciones compradas a 173,73 $ y compras 1 put de 170 $ por 6,70 $ (670 $).',
+            p:[{t:'A',k:0,q:1,p:173.73},{t:'P',k:170,q:1,p:6.70}]},
   collar:  {n:'Collar',                      d:'Tienes 100 acciones a 173,73 $, compras 1 put de 160 $ (3,35 $) y vendes 1 call de 190 $ (2,90 $).',
             p:[{t:'A',k:0,q:1,p:173.73},{t:'P',k:160,q:1,p:3.35},{t:'C',k:190,q:-1,p:2.90}]},
   spread:  {n:'Spread alcista con calls',    d:'Compras 1 call de 175 $ (8,15 $) y vendes 1 call de 190 $ (2,90 $). Pagas 525 $.',
@@ -458,8 +467,12 @@ const POS = {
   condor:  {n:'Iron condor',                 d:'Vendes 1 put de 160 $ y 1 call de 190 $; compras 1 put de 150 $ y 1 call de 200 $ como tope. Cobras 340 $.',
             p:[{t:'P',k:150,q:1,p:1.55},{t:'P',k:160,q:-1,p:3.35},{t:'C',k:190,q:-1,p:2.90},{t:'C',k:200,q:1,p:1.30}]}
 };
-const RETO_NIVELES = [['call','put'],['call','put','vput','cubierta'],['call','put','vput','cubierta','spread','collar'],
-                      ['call','put','vput','cubierta','spread','collar','doble','condor']];
+const RETO_NIVELES = [['call','put'],['call','put','vput','cubierta'],['call','put','vput','cubierta','seguro','spread','collar'],
+                      ['call','put','vput','cubierta','seguro','spread','collar','doble','condor']];
+
+/* ---------- Tabla comparativa: resultado por contrato si la acción acaba en cada precio ---------- */
+const COMP_X = [150, 173.73, 200];
+const COMP = [['Solo acciones',[{t:'A',k:0,q:1,p:173.73}]],['Call cubierta','cubierta'],['Vender put','vput'],['Acciones + put','seguro'],['Collar','collar']];
 
 /* ---------- Mini cadena: NVIDIA, vencimiento 24-dic-2026, cierre del 11-nov ---------- */
 const CADENA = {
@@ -541,13 +554,15 @@ u6a:[
  {h:'Un mapa, no una receta', p:'Las estrategias son formas de combinar calls, puts y acciones según lo que pienses que va a pasar. Aquí se explican para entenderlas: **no son una recomendación**.'},
  {h:'Comprar una call', v:{k:'pago',pos:'call'}, p:'Compras la call de 175 $ por 8,15 $. Pierdes como mucho **815 $** y empiezas a ganar por encima de **183,15 $**. Comprar una put funciona igual, pero hacia abajo.'},
  {h:'Call cubierta: una renta', v:{k:'pago',pos:'cubierta'}, p:'Tienes las acciones y vendes una call de 190 $ por 2,90 $: cobras **290 $**. A cambio, renuncias a lo que suba por encima de 190 $.'},
- {h:'Vender put: comprar más barato', v:{k:'pago',pos:'vput'}, p:'Vendes una put de 160 $ por 3,35 $ con 16.000 $ reservados. Si no baja de 160 $, te quedas los **335 $**. Si baja, compras la acción a un coste real de **156,65 $**.'}
+ {h:'Vender put: comprar más barato', v:{k:'pago',pos:'vput'}, p:'Vendes una put de 160 $ por 3,35 $ con 16.000 $ reservados. Si no baja de 160 $, te quedas los **335 $**. Si baja, compras la acción a un coste real de **156,65 $**.'},
+ {h:'Acciones con seguro', v:{k:'pago',pos:'seguro'}, p:'Tienes las acciones y compras una put de 170 $ por 6,70 $. Por mucho que caiga, pierdes como máximo **1.043 $**. Si sube, ganas todo lo que suba menos los **670 $** del seguro.'}
 ],
 u6b:[
  {h:'Collar: suelo y techo', v:{k:'pago',pos:'collar'}, p:'Con las acciones, compras una put de 160 $ y la pagas vendiendo una call de 190 $. Coste: 45 $. Lo máximo que pierdes son **1.418 $**; lo máximo que ganas, **1.582 $**.'},
  {h:'Spread alcista: apuesta acotada', v:{k:'pago',pos:'spread'}, p:'Compras la call de 175 $ y vendes la de 190 $. Cuesta **525 $** en vez de 815 $. Ganas como mucho **975 $** y empiezas a ganar desde 180,25 $.'},
  {h:'Call y put a la vez', v:{k:'pago',pos:'doble'}, p:'Compras las dos con el mismo precio pactado (172,50 $) por **1.718 $**. Ganas si la acción se mueve mucho, hacia donde sea: por debajo de 155,32 $ o por encima de 189,68 $.'},
- {h:'Iron condor: que se quede quieta', v:{k:'pago',pos:'condor'}, p:'Vendes una put de 160 $ y una call de 190 $, y compras otras más lejos como tope. Cobras **340 $** si acaba entre 160 $ y 190 $. Lo máximo que pierdes: **660 $**.'}
+ {h:'Iron condor: que se quede quieta', v:{k:'pago',pos:'condor'}, p:'Vendes una put de 160 $ y una call de 190 $, y compras otras más lejos como tope. Cobras **340 $** si acaba entre 160 $ y 190 $. Lo máximo que pierdes: **660 $**.'},
+ {h:'Ninguna gana siempre', v:{k:'comp'}, p:'Call cubierta y vender put ganan cuando no pasa nada y sufren en las caídas fuertes. El seguro y el collar cuestan algo cuando no pasa nada y te salvan en las caídas fuertes. Lo que mejoras en un caso, lo pagas en otro.'}
 ],
 u7a:[
  {h:'Antes de nada', flow:['Activar el permiso de opciones en el bróker','Abrir la cadena de opciones de la acción','Elegir vencimiento y precio pactado','Mirar la horquilla, el volumen y los contratos abiertos']},
@@ -599,6 +614,7 @@ const GLOS = [
  ['Orden limitada','Orden con el precio fijado por ti. Lo contrario de «a mercado».'],
  ['Prima','Precio del contrato. Se cotiza por acción; se multiplica por 100.'],
  ['Put','Derecho a vender una acción a un precio pactado hasta una fecha. Gana si la acción baja.'],
+ ['Put protectora (seguro)','Comprar una put sobre acciones que ya tienes: pone suelo a la pérdida a cambio de pagar la prima.'],
  ['Puts por cada 100 calls','Puts negociadas por cada 100 calls. Mide el tono del mercado; no predice la dirección.'],
  ['Spread','Comprar una opción y vender otra a la vez para abaratar el coste o limitar el riesgo.'],
  ['Strike o precio pactado','Precio al que se podrá comprar (call) o vender (put).'],
@@ -802,6 +818,10 @@ const Q = [
  w:'Compras a 160 $, pero cobraste 3,35 $: 160 − 3,35 = 156,65 $.',k:'Coste real = pactado − prima cobrada.'},
 {t:'u6a',q:'Tienes acciones y quieres sacarles una renta. ¿Qué se suele usar?',o:['Call cubierta','Comprar una call','Comprar call y put a la vez','Comprar una put'],r:0,
  w:'Vendes una call sobre acciones que ya tienes y cobras la prima.',k:'Renta sobre acciones = call cubierta.'},
+{t:'u6a',v:{k:'pago',pos:'seguro'},q:'Tienes 100 acciones a 173,73 $ y compras una put de 170 $ por 6,70 $. ¿Cuánto es lo máximo que puedes perder?',o:['1.043 $','670 $','17.373 $','No tiene límite'],r:0,
+ w:'Si cae, vendes a 170 $: pierdes 3,73 $ por acción, más los 6,70 $ del seguro. En total, 10,43 $ por acción: 1.043 $.',k:'Con el seguro, la pérdida tiene suelo.'},
+{t:'u6a',q:'Tienes acciones con una put comprada como seguro y la acción no se mueve. ¿Qué pasa?',o:['Pierdes la prima del seguro','Ganas la prima','Ni ganas ni pierdes','Te obligan a vender las acciones'],r:0,
+ w:'El seguro cuesta 670 $ haya caída o no. Si no hay siniestro, la prima se pierde.',k:'El seguro se paga siempre.'},
 {t:'u6a',vf:true,q:'Con una call cubierta, si la acción se hunde pierdes como un accionista, con la prima de colchón.',r:0,
  w:'Los 2,90 $ cobrados solo amortiguan: empiezas a perder por debajo de 170,83 $.',k:'La call cubierta no protege de una caída fuerte.'},
 {t:'u6a',vf:true,q:'Comprar una put solo sirve para apostar a que la acción baja.',r:1,
@@ -820,6 +840,10 @@ const Q = [
  w:'En el ejemplo, gana si acaba entre 156,60 $ y 193,40 $.',k:'Iron condor = que se quede quieta.'},
 {t:'u6b',q:'En el iron condor del ejemplo cobras 340 $ y puedes perder 660 $. ¿Qué enseña?',o:['Que se gana poco muchas veces y se pierde bastante pocas veces','Que es una estrategia sin riesgo','Que siempre se gana','Que conviene quitar el tope'],r:0,
  w:'Es hacer de aseguradora, pero con tope: la pérdida está limitada, y es mayor que la ganancia.',k:'Pérdida limitada, mayor que la ganancia.'},
+{t:'u6b',v:{k:'comp'},q:'¿Qué dos combinaciones ganan algo cuando la acción no se mueve?',o:['Call cubierta y vender put','Acciones con put y collar','Solo acciones y collar','Ninguna'],r:0,
+ w:'Las dos cobran una prima: 290 $ y 335 $ en el ejemplo. A cambio, son las que más sufren en las caídas fuertes.',k:'Quien cobra prima gana si no pasa nada.'},
+{t:'u6b',vf:true,q:'Alguna de las combinaciones con acciones gana en los tres casos: si la acción cae mucho, si se queda igual y si sube mucho.',r:1,
+ w:'Ninguna gana en los tres. Lo que mejoras en un caso, lo pagas en otro.',k:'No hay combinación gratis.'},
 {t:'u6b',vf:true,q:'En un spread alcista, a cambio de pagar menos, la ganancia tiene techo.',r:0,
  w:'La call vendida abarata la entrada (525 $ en vez de 815 $) y limita lo que ganas (975 $).',k:'Más barato, con techo.'},
 {t:'u6b',vf:true,q:'Comprar call y put a la vez es barato porque una compensa a la otra.',r:1,
@@ -999,8 +1023,16 @@ function htmlRango(v){
     <div class="ej"><span><b>${dec(v.lo,1)} $</b></span><span>hoy ${dec(v.spot,2)} $</span><span><b>${dec(v.hi,1)} $</b></span></div></div>
     <div class="cap">${esc(v.pct)} ${esc(v.f||'')} · La raya es el precio de hoy</div></div>`;
 }
+function htmlComp(){
+  const fila=([n,p])=>{const pz=typeof p==='string'?POS[p].p:p;
+    return `<tr><td>${esc(n)}</td>${COMP_X.map(x=>{const r=Math.round(resultado(pz,x)*100);
+      return `<td class="${r>0?'gan':r<0?'per':''}">${r>0?'+':r<0?'−':''}${miles(r)} $</td>`}).join('')}</tr>`};
+  return `<div class="vis"><table class="mapa comp"><tr><th></th><th>Acaba en ${px(COMP_X[0])}</th><th>Se queda igual</th><th>Acaba en ${px(COMP_X[2])}</th></tr>${COMP.map(fila).join('')}</table>
+    <div class="cap">Resultado por contrato (100 acciones), sin comisiones</div></div>`;
+}
 function vis(v){
   if(!v)return '';
+  if(v.k==='comp')return htmlComp();
   if(v.k==='pago')return svgPago(POS[v.pos].p,{x:v.x,oculto:v.x!=null,cap:v.cap});
   if(v.k==='boleto')return htmlBoleto(v);
   if(v.k==='cadena')return htmlCadena(v);
@@ -1214,6 +1246,8 @@ function vChuleta(){
         <tr><td>Open Int.</td><td>Contratos que siguen abiertos</td></tr></table></div>`;
   } else if(CHU==='mapa'){
     h+=`<div class="card"><div class="eyebrow">Si piensas que… se suele usar</div><table class="mapa" style="margin-top:6px">${MAPA.map(m=>`<tr><td>${esc(m[0])}</td><td>${esc(m[1])}</td></tr>`).join('')}</table></div>
+      <div class="card"><div class="eyebrow">Combinadas con acciones, comparadas</div><div style="margin-top:8px">${htmlComp()}</div>
+        <p class="mut" style="margin:0;font-size:13px;font-weight:700;line-height:1.45">Ninguna gana en las tres columnas: lo que mejoras en una, lo pagas en otra.</p></div>
       <div class="aviso">Es un mapa para entenderlas, no una recomendación. Ejemplos con NVIDIA a 173,73 $ (cierre del 11-nov-2026), vencimiento 20-nov.</div>
       ${Object.keys(POS).map(k=>`<div class="card"><h3 style="font-size:18.5px;margin-bottom:4px">${esc(POS[k].n)}</h3><p class="mut" style="margin:0 0 10px;font-size:13.5px;font-weight:700;line-height:1.4">${esc(POS[k].d)}</p>${svgPago(POS[k].p)}</div>`).join('')}`;
   } else if(CHU==='dicc'){
